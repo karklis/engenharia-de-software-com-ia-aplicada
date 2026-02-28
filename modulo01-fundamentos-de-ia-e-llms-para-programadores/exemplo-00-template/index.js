@@ -1,5 +1,33 @@
 import tf from '@tensorflow/tfjs-node';
 
+async function trainModel(inputXs, outputYs) {
+    const model = tf.sequential();
+    model.add(tf.layers.dense({inputShape: [7], units: 80, activation: 'relu'}));
+    model.add(tf.layers.dense({units: 3, activation: 'softmax'}));
+
+    model.compile({
+        optimizer: 'adam',
+        loss: 'categoricalCrossentropy',
+        metrics: ['accuracy']
+    });
+
+    await model.fit(inputXs, outputYs, {
+        verbose: 0,
+        epochs: 100,
+        shuffle: true
+    });
+
+    return model;
+}
+
+async function predict(model, pessoaNormalizada) {
+    const tfInput = tf.tensor2d(pessoaNormalizada);
+    const prediction = model.predict(tfInput);
+    const predArray = await prediction.array();
+    return predArray[0].map((prob, index) => ({ prob, index }));
+    
+}
+
 // Exemplo de pessoas para treino (cada pessoa com idade, cor e localização)
 // const pessoas = [
 //     { nome: "Erick", idade: 30, cor: "azul", localizacao: "São Paulo" },
@@ -36,5 +64,25 @@ const tensorLabels = [
 const inputXs = tf.tensor2d(tensorPessoasNormalizado)
 const outputYs = tf.tensor2d(tensorLabels)
 
-inputXs.print();
-outputYs.print();
+const model = await trainModel(inputXs, outputYs)
+
+const pessoa = { nome: 'zé', idade: 28, cor: 'verde', localizacao: 'Curitiba' }
+
+const pessoaNormalizada = [
+    [
+        0.2,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+    ]
+]
+
+const predictions = await predict(model, pessoaNormalizada)
+const result = predictions.sort((a, b) => b.prob - a.prob)
+.map( p => `${labelsNomes[p.index]}: ${(p.prob * 100).toFixed(2)}%`)
+.join('\n');
+
+console.log(result)
